@@ -9,6 +9,7 @@
 #include <algorithm>
 #include <iostream>
 #include <numeric>
+#include <math.h>
 
 #include "particle_filter.h"
 
@@ -71,6 +72,52 @@ void ParticleFilter::dataAssociation(std::vector<LandmarkObs> predicted, std::ve
 	//   observed measurement to this particular landmark.
 	// NOTE: this method will NOT be called by the grading code. But you will probably find it useful to 
 	//   implement this method and use it as a helper during the updateWeights phase.
+	//	for(int i=0; i< num_particles;i++){
+	//		Particle &particle = particles[i];
+	//		for (int j =0; j< observations.size();j++){
+	//			LandmarkObs& landmarkobs = observations[j];
+	//
+	//
+	//		}
+	//
+	//
+	//	}
+
+
+}
+
+void dataAssociationPerParticle(std::vector<LandmarkObs> predicted, const std::vector<LandmarkObs>& observations,
+		const Map& map_landmarks, const Particle& particle){
+	//find predicted landmark measurements corresponding to a specific particle and actual landmark measurments
+	for (int i =0; i< observations.size();i++){
+		const LandmarkObs& landmarkobs = observations[i];
+
+		//transform landmark observation to map's coordinate system
+		LandmarkObs landmarkobs_transformed;
+		landmarkobs_transformed.x = particle.x + landmarkobs_transformed.x;
+		landmarkobs_transformed.y = particle.y + landmarkobs_transformed.y;
+		//Find closet landmark as the predicted landmark
+		double clostest_dist = -1;
+		int predicted_landmark_id = -1;
+		for(int j=0; j< map_landmarks.landmark_list.size(); j++){
+			const Map::single_landmark_s& landmark_candidate = map_landmarks.landmark_list[j];
+			double x_dist = landmark_candidate.x_f - landmarkobs_transformed.x;
+			double y_dist = landmark_candidate.y_f - landmarkobs_transformed.y;
+			double dist = sqrt(x_dist*x_dist + y_dist*y_dist);
+
+			if(clostest_dist == -1 || dist < clostest_dist ){
+				clostest_dist = dist;
+				predicted_landmark_id = j;
+			}
+		}
+		//transform predicted landmark to vehicle coordinate system
+		const Map::single_landmark_s& landmark_closet = map_landmarks.landmark_list[predicted_landmark_id];
+		LandmarkObs predicted_measurement;
+		predicted_measurement.id = landmark_closet.id_i;
+		predicted_measurement.x = landmark_closet.x_f - particle.x;
+		predicted_measurement.y = landmark_closet.y_f - particle.y;
+		predicted.push_back(predicted_measurement);
+	}
 
 }
 
@@ -87,6 +134,16 @@ void ParticleFilter::updateWeights(double sensor_range, double std_landmark[],
 	//   3.33. Note that you'll need to switch the minus sign in that equation to a plus to account 
 	//   for the fact that the map's y-axis actually points downwards.)
 	//   http://planning.cs.uiuc.edu/node99.html
+
+
+	std::vector<LandmarkObs> predicted;
+	for(int i=0; i< num_particles;i++){
+		//Compute predicted landmark measurment for the particle
+		Particle &particle = particles[i];
+		dataAssociationPerParticle(predicted, observations,map_landmarks, particle);
+	}
+
+
 }
 
 void ParticleFilter::resample() {
