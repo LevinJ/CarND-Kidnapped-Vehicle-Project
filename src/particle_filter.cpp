@@ -86,7 +86,7 @@ void ParticleFilter::dataAssociation(std::vector<LandmarkObs> predicted, std::ve
 
 }
 
-void dataAssociationPerParticle(std::vector<LandmarkObs> predicted, const std::vector<LandmarkObs>& observations,
+void dataAssociationPerParticle(std::vector<LandmarkObs>& predicteds, const std::vector<LandmarkObs>& observations,
 		const Map& map_landmarks, const Particle& particle){
 	//find predicted landmark measurements corresponding to a specific particle and actual landmark measurments
 	for (int i =0; i< observations.size();i++){
@@ -116,11 +116,47 @@ void dataAssociationPerParticle(std::vector<LandmarkObs> predicted, const std::v
 		predicted_measurement.id = landmark_closet.id_i;
 		predicted_measurement.x = landmark_closet.x_f - particle.x;
 		predicted_measurement.y = landmark_closet.y_f - particle.y;
-		predicted.push_back(predicted_measurement);
+		predicteds.push_back(predicted_measurement);
 	}
 
 }
 
+double comupte_bivariate_gaussian(const std::vector<LandmarkObs>& observations, const std::vector<LandmarkObs>& predicteds,double std_landmark[]){
+	//compute bivariate-gaussian using the link https://en.wikipedia.org/wiki/Multivariate_normal_distribution
+	//under section Bivariate case
+	double weight_product = 0;
+	double sigma_x = std_landmark[0];
+	double sigma_y = std_landmark[1];
+//	double p = 0;
+
+	for(int i=0; i< observations.size();i++){
+		//Compute predicted landmark measurement for the particle
+		const LandmarkObs& observation = observations[i];
+		const LandmarkObs& predicted = predicteds[i];
+		double x = observation.x;
+		double y = observation.y;
+
+		double mu_x = predicted.x;
+		double mu_y = predicted.y;
+
+		double gap_x = x - mu_x;
+		double gap_y = y - mu_y;
+
+		double weight_1 = 1.0/(2 * M_PI * sigma_x * sigma_y);
+		double weight_2 = pow(gap_x, 2)/pow(sigma_x, 2) + pow(gap_y,2)/pow(sigma_y, 2);
+		weight_2 = exp(-0.5 * weight_2);
+		double weight = weight_1 * weight_2;
+
+		//multiply density for all predicted measurements
+		if(weight_product == 0){
+			weight_product = weight;
+		}else{
+			weight_product = weight_product *weight;
+		}
+	}
+	return weight_product;
+
+}
 void ParticleFilter::updateWeights(double sensor_range, double std_landmark[], 
 		std::vector<LandmarkObs> observations, Map map_landmarks) {
 	// TODO: Update the weights of each particle using a mult-variate Gaussian distribution. You can read
@@ -136,12 +172,20 @@ void ParticleFilter::updateWeights(double sensor_range, double std_landmark[],
 	//   http://planning.cs.uiuc.edu/node99.html
 
 
-	std::vector<LandmarkObs> predicted;
+
 	for(int i=0; i< num_particles;i++){
-		//Compute predicted landmark measurment for the particle
+		//Compute predicted landmark measurement for the particle
 		Particle &particle = particles[i];
-		dataAssociationPerParticle(predicted, observations,map_landmarks, particle);
+		std::vector<LandmarkObs> predicteds;
+		dataAssociationPerParticle(predicteds, observations,map_landmarks, particle);
+		//TODo, may need to add sensor_range handling later on
+		particle.weight = comupte_bivariate_gaussian(observations, predicteds,std_landmark);
+		cout<<"weigth for particle" << particle.id << ", " << particle.weight << endl;
 	}
+
+
+
+
 
 
 }
