@@ -10,6 +10,7 @@
 #include <iostream>
 #include <numeric>
 #include <math.h>
+#include <map>
 
 #include "particle_filter.h"
 
@@ -127,7 +128,7 @@ double comupte_bivariate_gaussian(const std::vector<LandmarkObs>& observations, 
 	double weight_product = 0;
 	double sigma_x = std_landmark[0];
 	double sigma_y = std_landmark[1];
-//	double p = 0;
+	//	double p = 0;
 
 	for(int i=0; i< observations.size();i++){
 		//Compute predicted landmark measurement for the particle
@@ -200,12 +201,18 @@ void ParticleFilter::resample() {
 	std::random_device rd;
 	std::mt19937 gen(rd());
 	std::discrete_distribution<> d( weights.begin(), weights.end());
+	std::map<int, int> m;
 	for(int i=0; i< num_particles;i++){
 
 		int slected_id = d(gen);
 		Particle slected_particle = particles_backup[slected_id];
-		cout <<"select particle  "<< slected_particle.id << endl;
+//		cout <<"select particle  "<< slected_particle.id << endl;
+		++m[slected_particle.id];
 		particles.push_back(slected_particle);
+	}
+	cout<<"picked sample number " << m.size()<<endl;
+	for(auto p : m) {
+		std::cout << p.first << " generated " << p.second << " times\n";
 	}
 
 }
