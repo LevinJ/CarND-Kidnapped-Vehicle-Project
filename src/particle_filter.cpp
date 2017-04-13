@@ -94,8 +94,8 @@ void dataAssociationPerParticle(std::vector<LandmarkObs>& predicteds, const std:
 
 		//transform landmark observation to map's coordinate system
 		LandmarkObs landmarkobs_transformed;
-		landmarkobs_transformed.x = particle.x + landmarkobs_transformed.x;
-		landmarkobs_transformed.y = particle.y + landmarkobs_transformed.y;
+		landmarkobs_transformed.x = particle.x + landmarkobs.x;
+		landmarkobs_transformed.y = particle.y + landmarkobs.y;
 		//Find closet landmark as the predicted landmark
 		double clostest_dist = -1;
 		int predicted_landmark_id = -1;
@@ -180,6 +180,7 @@ void ParticleFilter::updateWeights(double sensor_range, double std_landmark[],
 		dataAssociationPerParticle(predicteds, observations,map_landmarks, particle);
 		//TODo, may need to add sensor_range handling later on
 		particle.weight = comupte_bivariate_gaussian(observations, predicteds,std_landmark);
+		weights[i] = particle.weight;
 		cout<<"weigth for particle" << particle.id << ", " << particle.weight << endl;
 	}
 
