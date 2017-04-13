@@ -195,6 +195,18 @@ void ParticleFilter::resample() {
 	// TODO: Resample particles with replacement with probability proportional to their weight. 
 	// NOTE: You may find std::discrete_distribution helpful here.
 	//   http://en.cppreference.com/w/cpp/numeric/random/discrete_distribution
+	std::vector<Particle> particles_backup = particles;
+	particles.clear();
+	std::random_device rd;
+	std::mt19937 gen(rd());
+	std::discrete_distribution<> d( weights.begin(), weights.end());
+	for(int i=0; i< num_particles;i++){
+
+		int slected_id = d(gen);
+		Particle slected_particle = particles_backup[slected_id];
+		cout <<"select particle  "<< slected_particle.id << endl;
+		particles.push_back(slected_particle);
+	}
 
 }
 
