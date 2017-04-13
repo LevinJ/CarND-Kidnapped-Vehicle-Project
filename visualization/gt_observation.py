@@ -20,7 +20,7 @@ class GT_Observaion(object):
         return df
     def get_gtdf(self):
         filepath = '../data/gt_data.txt'
-        names = ['x','y','yaw']
+        names = ['x','y','theta']
         df = pd.read_csv(filepath, sep=None, header=None, names=names,engine='python')
 #         print(df.describe())
         return df
@@ -44,30 +44,26 @@ class GT_Observaion(object):
             y1 = landmark['y']
             x2 = gt_record['x']
             y2 = gt_record['y']
-            new_x, newy_y = self._transform_coor(gt_record, landmark)
-            print('relative x, y: {},{}'.format(new_x, newy_y))
+#             new_x, newy_y = self._transform_coor(gt_record, landmark)
+#             print('relative x, y: {},{}'.format(new_x, newy_y))
             ax.plot([x1,x2],[y1,y2])
             ax.annotate(str(i+1), ((x1+x2)/2,(y1 +y2)/2))
         
         return
-    def _transform_coor(self, gt_vehicle, landmark):
-        theta = -gt_vehicle['yaw']
-        xt= -gt_vehicle['x']
-        yt= gt_vehicle['y']
+    def _transform_coor(self, particle, landmark):
+        cos_theta = math.cos(particle.theta - math.pi / 2);
+        sin_theta = math.sin(particle.theta - math.pi / 2);
+        transformed_landmark_x = -(landmark.x - particle.x) * sin_theta + (landmark.y - particle.y) * cos_theta;
+        transformed_landmark_y = -(landmark.x - particle.x) * cos_theta - (landmark.y - particle.y) * sin_theta;
         
-        x = landmark['x']
-        y = landmark['y']
-        
-        new_x = x * math.cos(theta) - y * math.sin(theta) + xt
-        new_y = x* math.sin(theta) + y * math.cos(theta) + yt
-        return new_x,new_y
+        return transformed_landmark_x,transformed_landmark_y
     def derive_observation(self, step_id):
         landmark_df = self.get_landmarkdf()
-        gt_record = self.get_gtdf().iloc[step_id-1] 
-        print("ground truth vehicle postion {}".format(gt_record))
+        particle = self.get_gtdf().iloc[step_id-1] 
+        print("ground truth vehicle postion {}".format(particle))
         distances = []
         for _, landmark in landmark_df.iterrows():
-            dist = math.sqrt((gt_record['x'] - landmark['x'])**2 + (gt_record['y'] - landmark['y']) **2 )
+            dist = math.sqrt((particle['x'] - landmark['x'])**2 + (particle['y'] - landmark['y']) **2 )
             distances.append(dist)
         
         landmark_df['distance'] = distances
@@ -75,11 +71,23 @@ class GT_Observaion(object):
         sorted_landmark = landmark_df.sort_values('distance')
         sorted_landmark = sorted_landmark[sorted_landmark['distance']<=50]
         sorted_landmark = sorted_landmark.reset_index()
-#         sorted_landmark['x'] = sorted_landmark['x']-gt_record['x']
-#         sorted_landmark['y'] = sorted_landmark['y']-gt_record['y']
+        
+        
+        cos_theta = math.cos(particle.theta - math.pi / 2);
+        sin_theta = math.sin(particle.theta - math.pi / 2);
+        new_x = -(sorted_landmark['x'] - particle.x) * sin_theta + (sorted_landmark['y'] - particle.y) * cos_theta;
+        new_y = -(sorted_landmark['x'] - particle.x) * cos_theta - (sorted_landmark['y'] - particle.y) * sin_theta;
+        
+        sorted_landmark['x'] = new_x;
+        sorted_landmark['y'] = new_y;
+        
+        
+        
+#         sorted_landmark['x'] = sorted_landmark['x']-particle['x']
+#         sorted_landmark['y'] = sorted_landmark['y']-particle['y']
         print("predicted observation, length {}".format(len(sorted_landmark)))
         print(sorted_landmark)
-        self.__disp_data(landmark_df, sorted_landmark, gt_record)
+        self.__disp_data(landmark_df, sorted_landmark, particle)
         
         return
    
