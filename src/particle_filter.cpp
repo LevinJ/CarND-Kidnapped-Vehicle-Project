@@ -87,40 +87,69 @@ void ParticleFilter::dataAssociation(std::vector<LandmarkObs> predicted, std::ve
 
 }
 
+/**
+ * Transform the map landmarks to the particle coordinate system
+ * @param particle The particle whose coordinate system defines the transformation
+ * @param map_landmarks Map class containing map landmarks
+ * @output The vector of LandmarkObs transformed to the particle coordinate system
+ */
+void transformLandmarks(vector<LandmarkObs>& transformed_landmarks, const Particle& particle, const Map& map_landmarks) {
+
+	for (unsigned int i = 0; i < map_landmarks.landmark_list.size(); i++) {
+		Map::single_landmark_s landmark = map_landmarks.landmark_list[i];
+		LandmarkObs transformed_landmark;
+		transformed_landmark.id = landmark.id_i;
+		double cos_theta = cos(particle.theta - M_PI / 2);
+		double sin_theta = sin(particle.theta - M_PI / 2);
+		transformed_landmark.x = -(landmark.x_f - particle.x) * sin_theta + (landmark.y_f - particle.y) * cos_theta;
+		transformed_landmark.y = -(landmark.x_f - particle.x) * cos_theta - (landmark.y_f - particle.y) * sin_theta;
+		transformed_landmarks.push_back(transformed_landmark);
+	}
+
+	return;
+}
+/**
+ * Associate each observation to its mostly likely predicted landmark measurements for a particular particle
+ * @param observations, the list of actual landmark measurements
+ * @param map_landmarks, all available landmarks in the map
+ * @param particle, the particle being processed
+ * @output predicteds, the vector of predicted landmark measurements
+ */
 void dataAssociationPerParticle(std::vector<LandmarkObs>& predicteds, const std::vector<LandmarkObs>& observations,
 		const Map& map_landmarks, const Particle& particle){
-	//find predicted landmark measurements corresponding to a specific particle and actual landmark measurments
+	//Associate each observation to its mostly likely predicted landmark measurements for a particular particle
 	for (int i =0; i< observations.size();i++){
 		const LandmarkObs& landmarkobs = observations[i];
 
-		//transform landmark observation to map's coordinate system
-		LandmarkObs landmarkobs_transformed;
-		landmarkobs_transformed.x = particle.x + landmarkobs.x;
-		landmarkobs_transformed.y = particle.y + landmarkobs.y;
+		//transform all landmarks in map to particle coordinate system
+		vector<LandmarkObs> transformed_landmarks;
+		transformLandmarks(transformed_landmarks, particle, map_landmarks);
+
+
 		//Find closet landmark as the predicted landmark
 		double clostest_dist = -1;
-		int predicted_landmark_id = -1;
-		for(int j=0; j< map_landmarks.landmark_list.size(); j++){
-			const Map::single_landmark_s& landmark_candidate = map_landmarks.landmark_list[j];
-			double x_dist = landmark_candidate.x_f - landmarkobs_transformed.x;
-			double y_dist = landmark_candidate.y_f - landmarkobs_transformed.y;
+		int predicted_landmark_ind = -1;
+		for(int j=0; j< transformed_landmarks.size(); j++){
+			const LandmarkObs& landmark_candidate = transformed_landmarks[j];
+
+			double x_dist = landmark_candidate.x - landmarkobs.x;
+			double y_dist = landmark_candidate.y - landmarkobs.y;
 			double dist = sqrt(x_dist*x_dist + y_dist*y_dist);
 
 			if(clostest_dist == -1 || dist < clostest_dist ){
 				clostest_dist = dist;
-				predicted_landmark_id = j;
+				predicted_landmark_ind = j;
 			}
 		}
 		//transform predicted landmark to vehicle coordinate system
-		const Map::single_landmark_s& landmark_closet = map_landmarks.landmark_list[predicted_landmark_id];
-		LandmarkObs predicted_measurement;
-		predicted_measurement.id = landmark_closet.id_i;
-		predicted_measurement.x = landmark_closet.x_f - particle.x;
-		predicted_measurement.y = landmark_closet.y_f - particle.y;
-		predicteds.push_back(predicted_measurement);
+		const LandmarkObs& landmark_closet = transformed_landmarks[predicted_landmark_ind];
+
+		predicteds.push_back(landmark_closet);
 	}
 
 }
+
+
 
 double comupte_bivariate_gaussian(const std::vector<LandmarkObs>& observations, const std::vector<LandmarkObs>& predicteds,double std_landmark[]){
 	//compute bivariate-gaussian using the link https://en.wikipedia.org/wiki/Multivariate_normal_distribution
