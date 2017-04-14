@@ -22,7 +22,7 @@ void ParticleFilter::init(double x, double y, double theta, double std[]) {
 	// Add random Gaussian noise to each particle.
 	// NOTE: Consult particle_filter.h for more information about this method (and others in this file).
 
-	num_particles = 1000;
+	num_particles = 100;
 
 	double std_x = std[0];
 	double std_y = std[1];
@@ -52,22 +52,45 @@ void ParticleFilter::init(double x, double y, double theta, double std[]) {
 	is_initialized = true;
 }
 
-void ParticleFilter::prediction(double delta_t, double std_pos[], double velocity, double yaw_rate) {
+void ParticleFilter::prediction(double delta_t, double std[], double velocity, double yaw_rate) {
 	// Add measurements to each particle and add random Gaussian noise.
 	// NOTE: When adding noise you may find std::normal_distribution and std::default_random_engine useful.
 	//  http://en.cppreference.com/w/cpp/numeric/random/normal_distribution
 	//  http://www.cplusplus.com/reference/random/default_random_engine/
+	random_device rd;
+	default_random_engine gen(rd());
+
+	double std_x = std[0];
+	double std_y = std[1];
+	double std_theta = std[2];
+
 	for(int i=0; i< num_particles;i++){
 		Particle &particle = particles[i];
 		double new_theta = particle.theta + yaw_rate * delta_t;
 		particle.x = particle.x + (velocity/yaw_rate) * (sin(new_theta) - sin(particle.theta));
 		particle.y = particle.y + (velocity/yaw_rate) *(cos(particle.theta) -  cos(new_theta));
 		particle.theta = new_theta;
-		//maybe need to add noise(std_pos) later on, though for now I don't need to do so
+		//the outcome of prediction step can't be deterministic, otherwise we will have less and less
+		//particles in our pool, and particle filter's foundation (select the most likely particles out of many particles based on
+		//their match with measurements) will be gone. Besides, the motion model has assumptions and ignore the noise in velociy and
+		//yaw_rate
+		//So we are adding noise to the particle predction outcome here
+		normal_distribution<double> dist_x(particle.x, std_x);
+		normal_distribution<double> dist_y(particle.y, std_y);
+		normal_distribution<double> dist_theta(particle.theta , std_theta);
+
+		particle.id = i; //assign it with new particle id since we changed its states by adding noise, so we have num_particles different new particles again
+		particle.x = dist_x(gen);
+		particle.y = dist_y(gen);
+		particle.theta = dist_theta(gen);
+
 	}
 
 }
 
+/*
+ * This function is not used, instead non member function dataAssociationPerParticle is used to perform data association
+ */
 void ParticleFilter::dataAssociation(std::vector<LandmarkObs> predicted, std::vector<LandmarkObs>& observations) {
 	// TODO: Find the predicted measurement that is closest to each observed measurement and assign the 
 	//   observed measurement to this particular landmark.
@@ -88,7 +111,8 @@ void ParticleFilter::dataAssociation(std::vector<LandmarkObs> predicted, std::ve
 }
 
 /**
- * Transform the map landmarks to the particle coordinate system
+ * Transform the map landmarks to the particle coordinate system.
+ * This is defined as a local function because we are only allowed to change particle_filter.cpp for project submission
  * @param particle The particle whose coordinate system defines the transformation
  * @param map_landmarks Map class containing map landmarks
  * @output The vector of LandmarkObs transformed to the particle coordinate system
@@ -110,6 +134,7 @@ void transformLandmarks(vector<LandmarkObs>& transformed_landmarks, const Partic
 }
 /**
  * Associate each observation to its mostly likely predicted landmark measurements for a particular particle
+ * This is defined as a local function because we are only allowed to change particle_filter.cpp for project submission
  * @param observations, the list of actual landmark measurements
  * @param map_landmarks, all available landmarks in the map
  * @param particle, the particle being processed
@@ -135,6 +160,9 @@ void dataAssociationPerParticle(std::vector<LandmarkObs>& predicteds, const std:
 			double x_dist = landmark_candidate.x - landmarkobs.x;
 			double y_dist = landmark_candidate.y - landmarkobs.y;
 			double dist = sqrt(x_dist*x_dist + y_dist*y_dist);
+			//sensor range information is not used to filer out those landmarks that are outside the sensor range for this particle.
+			//This is because those distant landmarks, if matched with an observation,  will end up with predicted landmark measurements that is very different
+			//from actual landmark measurements, and thus this particle can be effectively filtered due to  this mismatch
 
 			if(clostest_dist == -1 || dist < clostest_dist ){
 				clostest_dist = dist;
@@ -189,7 +217,7 @@ double comupte_bivariate_gaussian(const std::vector<LandmarkObs>& observations, 
 }
 void ParticleFilter::updateWeights(double sensor_range, double std_landmark[], 
 		std::vector<LandmarkObs> observations, Map map_landmarks) {
-	// TODO: Update the weights of each particle using a mult-variate Gaussian distribution. You can read
+	// Update the weights of each particle using a mult-variate Gaussian distribution. You can read
 	//   more about this distribution here: https://en.wikipedia.org/wiki/Multivariate_normal_distribution
 	// NOTE: The observations are given in the VEHICLE'S coordinate system. Your particles are located
 	//   according to the MAP'S coordinate system. You will need to transform between the two systems.
@@ -204,14 +232,16 @@ void ParticleFilter::updateWeights(double sensor_range, double std_landmark[],
 
 
 	for(int i=0; i< num_particles;i++){
-		//Compute predicted landmark measurement for the particle
+
 		Particle &particle = particles[i];
 		std::vector<LandmarkObs> predicteds;
+		//Find associated landmarks (and consequently predicted landmakr measurments) for the observations (actual landmark measurments).
 		dataAssociationPerParticle(predicteds, observations,map_landmarks, particle);
-		//TODo, may need to add sensor_range handling later on
+
+		//Compute the particle weight based on actual landmark measurements and predicted landmark measurements
 		particle.weight = comupte_bivariate_gaussian(observations, predicteds,std_landmark);
 		weights[i] = particle.weight;
-		cout<<"weigth for particle" << particle.id << ", " << particle.weight << endl;
+//		cout<<"weight for particle" << particle.id << ", " << particle.weight << endl;
 	}
 
 
@@ -235,14 +265,14 @@ void ParticleFilter::resample() {
 
 		int slected_id = d(gen);
 		Particle slected_particle = particles_backup[slected_id];
-//		cout <<"select particle  "<< slected_particle.id << endl;
+		//		cout <<"select particle  "<< slected_particle.id << endl;
 		++m[slected_particle.id];
 		particles.push_back(slected_particle);
 	}
-	cout<<"picked sample number " << m.size()<<endl;
-	for(auto p : m) {
-		std::cout << p.first << " generated " << p.second << " times\n";
-	}
+//	cout<<"picked sample number " << m.size()<<endl;
+//	for(auto p : m) {
+//		std::cout << p.first << " generated " << p.second << " times\n";
+//	}
 
 }
 

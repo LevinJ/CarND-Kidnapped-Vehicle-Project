@@ -93,7 +93,7 @@ class GT_Observaion(object):
    
     def run(self):
 #         df = self.get_gtdf()
-        step_id = 2
+        step_id = 1980
         self.get_observation(step_id)
         self.derive_observation(step_id)
         
