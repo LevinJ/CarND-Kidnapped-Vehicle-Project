@@ -89,7 +89,7 @@ void ParticleFilter::prediction(double delta_t, double std[], double velocity, d
 }
 
 /*
- * This function is not used, instead non member function dataAssociationPerParticle is used to perform data association
+ * This function is not used, instead non member function data_association_per_particle is used to perform data association
  */
 void ParticleFilter::dataAssociation(std::vector<LandmarkObs> predicted, std::vector<LandmarkObs>& observations) {
 	// TODO: Find the predicted measurement that is closest to each observed measurement and assign the 
@@ -115,12 +115,12 @@ void ParticleFilter::dataAssociation(std::vector<LandmarkObs> predicted, std::ve
  * This is defined as a local function because we are only allowed to change particle_filter.cpp for project submission
  * @param particle The particle whose coordinate system defines the transformation
  * @param map_landmarks Map class containing map landmarks
- * @output The vector of LandmarkObs transformed to the particle coordinate system
+ * @output The vector of landmarks transformed to the particle coordinate system
  */
-void transformLandmarks(vector<LandmarkObs>& transformed_landmarks, const Particle& particle, const Map& map_landmarks) {
+void transform_landmarks_coord(vector<LandmarkObs>& transformed_landmarks, const Particle& particle, const Map& map_landmarks) {
 
-	for (unsigned int i = 0; i < map_landmarks.landmark_list.size(); i++) {
-		Map::single_landmark_s landmark = map_landmarks.landmark_list[i];
+	for (int i = 0; i < map_landmarks.landmark_list.size(); i++) {
+		const Map::single_landmark_s& landmark = map_landmarks.landmark_list[i];
 		LandmarkObs transformed_landmark;
 		transformed_landmark.id = landmark.id_i;
 		double cos_theta = cos(particle.theta - M_PI / 2);
@@ -140,7 +140,7 @@ void transformLandmarks(vector<LandmarkObs>& transformed_landmarks, const Partic
  * @param particle, the particle being processed
  * @output predicteds, the vector of predicted landmark measurements
  */
-void dataAssociationPerParticle(std::vector<LandmarkObs>& predicteds, const std::vector<LandmarkObs>& observations,
+void data_association_per_particle(std::vector<LandmarkObs>& predicteds, const std::vector<LandmarkObs>& observations,
 		const Map& map_landmarks, const Particle& particle){
 	//Associate each observation to its mostly likely predicted landmark measurements for a particular particle
 	for (int i =0; i< observations.size();i++){
@@ -148,7 +148,7 @@ void dataAssociationPerParticle(std::vector<LandmarkObs>& predicteds, const std:
 
 		//transform all landmarks in map to particle coordinate system
 		vector<LandmarkObs> transformed_landmarks;
-		transformLandmarks(transformed_landmarks, particle, map_landmarks);
+		transform_landmarks_coord(transformed_landmarks, particle, map_landmarks);
 
 
 		//Find closet landmark as the predicted landmark
@@ -235,8 +235,8 @@ void ParticleFilter::updateWeights(double sensor_range, double std_landmark[],
 
 		Particle &particle = particles[i];
 		std::vector<LandmarkObs> predicteds;
-		//Find associated landmarks (and consequently predicted landmakr measurments) for the observations (actual landmark measurments).
-		dataAssociationPerParticle(predicteds, observations,map_landmarks, particle);
+		//Find associated landmarks (and consequently predicted landmark measurements) for the observations (actual landmark measurements).
+		data_association_per_particle(predicteds, observations,map_landmarks, particle);
 
 		//Compute the particle weight based on actual landmark measurements and predicted landmark measurements
 		particle.weight = comupte_bivariate_gaussian(observations, predicteds,std_landmark);
@@ -252,7 +252,7 @@ void ParticleFilter::updateWeights(double sensor_range, double std_landmark[],
 }
 
 void ParticleFilter::resample() {
-	// TODO: Resample particles with replacement with probability proportional to their weight. 
+	// Resample particles with replacement with probability proportional to their weight.
 	// NOTE: You may find std::discrete_distribution helpful here.
 	//   http://en.cppreference.com/w/cpp/numeric/random/discrete_distribution
 	std::vector<Particle> particles_backup = particles;
