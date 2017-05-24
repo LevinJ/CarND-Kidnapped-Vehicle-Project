@@ -140,7 +140,7 @@ void ParticleFilter::updateWeights(double sensor_range, double std_landmark[],
 
 			// initialise terms
 			Map::single_landmark_s nearest_landmark;
-			double min_distance = sensor_range;
+			double min_distance = -1;
 			double distance = 0;
 
 			// associate sensor measurements to map landmarks 
@@ -152,7 +152,7 @@ void ParticleFilter::updateWeights(double sensor_range, double std_landmark[],
 				distance = fabs(predicted_x - landmark.x_f) + fabs(predicted_y - landmark.y_f);
 
 				// nearest landmark to obs
-				if (distance < min_distance) {
+				if (min_distance == -1 || distance < min_distance) {
 					min_distance = distance;
 					nearest_landmark = landmark;
 				}
