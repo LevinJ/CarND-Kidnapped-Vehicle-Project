@@ -26,7 +26,7 @@ void ParticleFilter::init(double x, double y, double theta, double std[]) {
     // NOTE: Consult particle_filter.h for more information about this method (and others in this file).
 
     // set the number of particles
-    num_particles = 128;
+    num_particles = 70;
 
     // pre-allocate memory
     weights.resize(num_particles, 1.0);
@@ -157,6 +157,71 @@ void ParticleFilter::updateWeights(double sensor_range, double std_landmark[],
 	//   and the following is a good resource for the actual equation to implement (look at equation 
 	//   3.33
 	//   http://planning.cs.uiuc.edu/node99.html
+	// aliases for readability
+	    const double std_x = std_landmark[0];
+	    const double std_y = std_landmark[1];
+
+	    // avoid repeating numeric expressions, taking computation out of loop
+	    const double two_std_x_sqrd = 2. * std_x * std_x;
+	    const double two_std_y_sqrd = 2. * std_y * std_y;
+	    const double two_Pi_std_x_std_y = 2. * M_PI * std_x * std_y;
+
+	    for (int i = 0; i < particles.size(); ++i) {
+
+	        Particle p = particles[i];
+
+	        vector<LandmarkObs> transformed_observations_list;
+
+	        // transform each observation coordinates from vehicle XY to map XY system
+	        for (auto iterObs: observations) {
+	            LandmarkObs transformed_observation;
+
+	            transformed_observation.id = iterObs.id;
+
+	            transformed_observation.x =
+	                    p.x + iterObs.x * cos(p.theta) - iterObs.y * sin(p.theta);
+
+	            transformed_observation.y =
+	                    p.y + iterObs.x * sin(p.theta) + iterObs.y * cos(p.theta);
+
+	            transformed_observations_list.push_back(transformed_observation);
+	        }
+
+	        // search for map landmarks that are nearest to the particle
+	        vector<LandmarkObs> predicted_landmarks;
+	        for (auto iterLandmark: map_landmarks.landmark_list) {
+
+	            double cur_dist = dist(p.x, p.y, iterLandmark.x_f, iterLandmark.y_f);
+	            if (cur_dist < sensor_range) {
+	                LandmarkObs nearest_landmark;
+
+	                nearest_landmark.id = iterLandmark.id_i;
+
+	                nearest_landmark.x = iterLandmark.x_f;
+	                nearest_landmark.y = iterLandmark.y_f;
+
+	                predicted_landmarks.push_back(nearest_landmark);
+	            }
+	        }
+
+	        // search for closest landmarks for the transformed observations
+	        vector<LandmarkObs> closest_landmarks;
+	        std::copy(transformed_observations_list.begin(), transformed_observations_list.end(),
+	                  std::back_inserter(closest_landmarks));
+	        dataAssociation(predicted_landmarks, closest_landmarks);
+
+	        // compute weights for the closest landmarks
+	        double wt = 1.0;
+	        for (int j = 0; j < closest_landmarks.size(); ++j) {
+	            double dx = transformed_observations_list.at(j).x - closest_landmarks.at(j).x;
+	            double dy = transformed_observations_list.at(j).y - closest_landmarks.at(j).y;
+
+	            wt *= 1.0 / (two_Pi_std_x_std_y) * exp(-dx * dx / (two_std_x_sqrd)) * exp(-dy * dy / (two_std_y_sqrd));
+
+	            // update stored values of the particle & filter weigths
+	            weights[i] = p.weight = wt;
+	        }
+	    }
 }
 
 void ParticleFilter::resample() {
