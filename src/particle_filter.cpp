@@ -41,36 +41,25 @@ void ParticleFilter::init(double x, double y, double theta, double std[]) {
 
 void ParticleFilter::prediction(double delta_t, double std_pos[], double velocity, double yaw_rate) {
 
-    const double yaw_dt     = yaw_rate * delta_t;
-    const double v_dt       = velocity * delta_t;
-    const double v_by_yaw   = velocity / yaw_rate;
+	random_device rd;
+	default_random_engine gen(rd());
 
-    random_device rd;
-    default_random_engine randGen(rd());
+	normal_distribution<double> dist_x(0, std_pos[0]); //Gaussian noise initializing based on estimates by sampling from Gaussian dist
+	normal_distribution<double> dist_y(0, std_pos[1]); //x,y,theta are values from GPS
+	normal_distribution<double> dist_theta(0, std_pos[2]);
 
-    const double epsilon = 1e-4;
+	for (auto &p: particles){
 
-    for (auto &p: particles) {
-
-        if (fabs(yaw_rate) > epsilon) {
-            const double theta_new = p.theta + yaw_dt;
-            p.x += v_by_yaw * (sin(theta_new) - sin(p.theta));
-            p.y += v_by_yaw * (cos(p.theta) - cos(theta_new));
-            p.theta = theta_new;
-        } else {
-            p.x += v_dt * cos(p.theta);
-            p.y += v_dt * sin(p.theta);
-        }
-
-        // create normal distributions for x, y & theta
-        normal_distribution<double> x_normalDistr(p.x,          std_pos[0]);
-        normal_distribution<double> y_normalDistr(p.y,          std_pos[1]);
-        normal_distribution<double> theta_normalDistr(p.theta,  std_pos[2]);
-
-        p.x     = x_normalDistr(randGen);
-        p.y     = y_normalDistr(randGen);
-        p.theta = theta_normalDistr(randGen);
-    }
+		if(fabs(yaw_rate) > 0.0001){
+			p.x += velocity/yaw_rate* (sin(p.theta + yaw_rate * delta_t) - sin(p.theta)) + dist_x(gen);
+			p.y += velocity/yaw_rate * (cos(p.theta) - cos(p.theta + yaw_rate* delta_t)) + dist_y(gen);
+		}
+		else{
+			p.x += velocity * delta_t *cos(p.theta) + dist_x(gen);
+			p.y += velocity * delta_t * sin(p.theta)+ dist_y(gen);
+		}
+		p.theta = p.theta + yaw_rate*delta_t + dist_theta(gen);
+	}
 }
 
 void ParticleFilter::dataAssociation(std::vector<LandmarkObs> predicted, std::vector<LandmarkObs> &observations) {
@@ -155,15 +144,14 @@ void ParticleFilter::updateWeights(double sensor_range, double std_landmark[],
 }
 
 void ParticleFilter::resample() {
-    vector<Particle> particles_resampled(num_particles);
-    discrete_distribution<int> particles_discr_distrib(weights.begin(), weights.end());
+    vector<Particle> resample_particles;
+    discrete_distribution<int> distribution(weights.begin(), weights.end());
     random_device rd;
     default_random_engine randGen(rd());
     for (int i = 0; i < num_particles; ++i) {
-        int j = particles_discr_distrib(randGen);
-        particles_resampled[i] = particles[j];
+    	resample_particles.push_back(particles[distribution(randGen)]);
     }
-    particles = particles_resampled;
+    particles = resample_particles;
 }
 
 Particle ParticleFilter::SetAssociations(Particle particle, std::vector<int> associations, std::vector<double> sense_x, std::vector<double> sense_y)
