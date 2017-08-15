@@ -151,7 +151,7 @@ void ParticleFilter::resample() {
     for (int i = 0; i < num_particles; ++i) {
     	resample_particles.push_back(particles[distribution(randGen)]);
     }
-    particles = resample_particles;
+    particles = std::move(resample_particles);
 }
 
 Particle ParticleFilter::SetAssociations(Particle particle, std::vector<int> associations, std::vector<double> sense_x, std::vector<double> sense_y)
