@@ -95,7 +95,7 @@ void dataAssociationPerParticle(std::vector<LandmarkObs>& predicted, const std::
 }
 
 void ParticleFilter::updateWeights(double sensor_range, double std_landmark[], 
-		std::vector<LandmarkObs> observations, Map map_landmarks) {
+		const std::vector<LandmarkObs> &observations, const Map &map_landmarks) {
 	 	 weights.resize(num_particles, 1.0);
 
 	    const double std_x = std_landmark[0];
@@ -106,17 +106,17 @@ void ParticleFilter::updateWeights(double sensor_range, double std_landmark[],
 	    const double two_std_y_sqrd = 2. * std_y * std_y;
 	    const double two_Pi_std_x_std_y = 2. * M_PI * std_x * std_y;
 
-	    std::vector<LandmarkObs> observations_p = observations;
+
 	    for (int i = 0; i < particles.size(); ++i) {
 
 	        Particle &p = particles[i];
 
+			vector<LandmarkObs> transformed_observations;
 	        // transform each observation coordinates from vehicle XY to map XY system
-	        for (int j=0; j< observations_p.size(); j++) {
-	        	double x =p.x + observations_p[j].x * cos(p.theta) - observations_p[j].y * sin(p.theta);
-	        	double y =p.y + observations_p[j].x * sin(p.theta) + observations_p[j].y * cos(p.theta);
-	        	observations[j].x = x;
-	        	observations[j].y = y;
+	        for (int j=0; j< observations.size(); j++) {
+	        	double x =p.x + observations[j].x * cos(p.theta) - observations[j].y * sin(p.theta);
+	        	double y =p.y + observations[j].x * sin(p.theta) + observations[j].y * cos(p.theta);
+				transformed_observations.push_back(LandmarkObs{observations[j].id, x, y});
 	        }
 
 	        vector<LandmarkObs> predicted_landmarks;
@@ -130,18 +130,26 @@ void ParticleFilter::updateWeights(double sensor_range, double std_landmark[],
 	        }
 
 
-	        dataAssociationPerParticle(predicted_landmarks, observations);
+	        dataAssociationPerParticle(predicted_landmarks, transformed_observations);
 	        // compute weights for the closest landmarks
+	        std::vector<int> associations;
+			std::vector<double> sense_x;
+			std::vector<double> sense_y;
 	        double wt = 1.0;
 	        for (int j = 0; j < predicted_landmarks.size(); ++j) {
-	            double dx = observations[j].x - predicted_landmarks[j].x;
-	            double dy = observations[j].y - predicted_landmarks[j].y;
+	        	associations.push_back(predicted_landmarks[j].id);
+	        	sense_x.push_back(transformed_observations[j].x);
+	        	sense_y.push_back(transformed_observations[j].y);
+	            double dx = transformed_observations[j].x - predicted_landmarks[j].x;
+	            double dy = transformed_observations[j].y - predicted_landmarks[j].y;
 
 	            wt *= 1.0 / (two_Pi_std_x_std_y) * exp(-dx * dx / (two_std_x_sqrd)) * exp(-dy * dy / (two_std_y_sqrd));
 
 	            // update stored values of the particle & filter weigths
 	            weights[i] = p.weight = wt;
 	        }
+
+	        p = SetAssociations(p, associations, sense_x, sense_y);
 	    }
 }
 
