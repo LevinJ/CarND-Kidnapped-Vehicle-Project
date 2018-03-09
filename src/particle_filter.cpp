@@ -149,7 +149,7 @@ void ParticleFilter::updateWeights(double sensor_range, double std_landmark[],
 	            weights[i] = p.weight = wt;
 	        }
 
-	        p = SetAssociations(p, associations, sense_x, sense_y);
+	        SetAssociations(p, associations, sense_x, sense_y);
 	    }
 }
 
