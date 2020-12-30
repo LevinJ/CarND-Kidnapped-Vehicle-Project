@@ -62,7 +62,7 @@ void ParticleFilter::prediction(double delta_t, double std_pos[], double velocit
 	}
 }
 
-std::vector<std::vector<double >>  ParticleFilter::dataAssociation(std::vector<LandmarkObs> predicted, std::vector<LandmarkObs> &observations) {
+void  ParticleFilter::dataAssociation(std::vector<LandmarkObs> predicted, std::vector<LandmarkObs> &observations) {
 
 
 }
@@ -164,7 +164,7 @@ void ParticleFilter::resample() {
     particles = std::move(resample_particles);
 }
 
-Particle ParticleFilter::SetAssociations(Particle& particle, const std::vector<int>& associations,
+void ParticleFilter::SetAssociations(Particle& particle, const std::vector<int>& associations,
         const std::vector<double>& sense_x, const std::vector<double>& sense_y)
 {
 	//particle: the particle to assign each listed association, and association's (x,y) world coordinates mapping to
@@ -181,7 +181,7 @@ Particle ParticleFilter::SetAssociations(Particle& particle, const std::vector<i
  	particle.sense_x = sense_x;
  	particle.sense_y = sense_y;
 
- 	return particle;
+ 	return;
 }
 
 string ParticleFilter::getAssociations(Particle best)
@@ -193,21 +193,19 @@ string ParticleFilter::getAssociations(Particle best)
     s = s.substr(0, s.length()-1);  // get rid of the trailing space
     return s;
 }
-string ParticleFilter::getSenseX(Particle best)
-{
-	vector<double> v = best.sense_x;
-	stringstream ss;
-    copy( v.begin(), v.end(), ostream_iterator<float>(ss, " "));
-    string s = ss.str();
-    s = s.substr(0, s.length()-1);  // get rid of the trailing space
-    return s;
-}
-string ParticleFilter::getSenseY(Particle best)
-{
-	vector<double> v = best.sense_y;
-	stringstream ss;
-    copy( v.begin(), v.end(), ostream_iterator<float>(ss, " "));
-    string s = ss.str();
-    s = s.substr(0, s.length()-1);  // get rid of the trailing space
-    return s;
+
+string ParticleFilter::getSenseCoord(Particle best, string coord) {
+  vector<double> v;
+
+  if (coord == "X") {
+    v = best.sense_x;
+  } else {
+    v = best.sense_y;
+  }
+
+  std::stringstream ss;
+  copy(v.begin(), v.end(), std::ostream_iterator<float>(ss, " "));
+  string s = ss.str();
+  s = s.substr(0, s.length()-1);  // get rid of the trailing space
+  return s;
 }
